@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { NovelCard } from "@/components/novel/NovelCard";
@@ -90,11 +92,10 @@ export default async function GenrePage({ params, searchParams }: GenrePageProps
             <a
               key={p}
               href={`/genre/${slug}?page=${p}`}
-              className={`rounded-md px-3 py-1.5 text-sm ${
-                p === page
+              className={`rounded-md px-3 py-1.5 text-sm ${p === page
                   ? "bg-primary text-primary-foreground"
                   : "bg-muted hover:bg-accent"
-              }`}
+                }`}
             >
               {p}
             </a>
