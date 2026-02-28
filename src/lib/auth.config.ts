@@ -33,22 +33,6 @@ export const authConfig = {
 
       return true;
     },
-    async jwt({ token, user }) {
-      if (user) {
-        token.id = user.id!;
-        token.role = (user as Record<string, unknown>).role as string;
-        token.username = (user as Record<string, unknown>).username as string;
-      }
-      return token;
-    },
-    async session({ session, token }) {
-      if (token) {
-        session.user.id = token.id as string;
-        session.user.role = token.role as string;
-        session.user.username = token.username as string;
-      }
-      return session;
-    },
   },
   providers: [],
 } satisfies NextAuthConfig;

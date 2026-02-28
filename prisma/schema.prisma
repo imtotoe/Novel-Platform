@@ -44,6 +44,37 @@ enum ReportReason {
   OTHER
 }
 
+enum BadgeCategory {
+  WRITER_MILESTONE
+  WRITER_STREAK
+  WRITER_COMMUNITY
+  READER_MILESTONE
+  READER_STREAK
+  READER_COMMUNITY
+}
+
+enum CoinTxStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  EXPIRED
+  REFUNDED
+}
+
+enum CoinLedgerType {
+  PURCHASE
+  SPEND
+  REFUND
+  BONUS
+  ADMIN_ADJUST
+}
+
+enum RevenueStatus {
+  PENDING
+  REQUESTED
+  PAID
+}
+
 // ─────────────────────────────────────────
 // USER
 // ─────────────────────────────────────────
@@ -62,6 +93,8 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
+  coinBalance   Int       @default(0)
+
   accounts      Account[]
   sessions      Session[]
   novels        Novel[]
@@ -74,6 +107,25 @@ model User {
   notifications Notification[]
   reports       Report[]       @relation("Reporter")
   reportedItems Report[]       @relation("ReportedUser")
+
+  // Writer features
+  writingSessions    WritingSession[]
+  writingGoal        WritingGoal?
+  writingStreak      WritingStreak?
+  dailyWritingLogs   DailyWritingLog[]
+  savedVersions      ChapterVersion[]   @relation("VersionSavedBy")
+
+  // Reader features
+  readingStreak      ReadingStreak?
+  completionAlerts   CompletionAlert[]
+  userBadges         UserBadge[]
+
+  // Coin module
+  coinTransactions   CoinTransaction[]
+  coinSpends         CoinSpend[]
+  coinLedger         CoinLedger[]
+  writerEarnings     WriterRevenue[]      @relation("WriterEarnings")
+  withdrawals        WithdrawalRequest[]  @relation("Withdrawals")
 
   @@index([username])
   @@index([email])
@@ -141,6 +193,13 @@ model Novel {
   votes       Vote[]
   reports     Report[]      @relation("ReportedNovel")
 
+  // Writer/Reader features
+  writingSessions    WritingSession[]
+  completionAlerts   CompletionAlert[]
+
+  // Coin module
+  coinSpends         CoinSpend[]
+
   @@index([slug])
   @@index([authorId])
   @@index([status, isPublished])
@@ -159,10 +218,20 @@ model Chapter {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
+  scheduledAt   DateTime?
+  coinPrice     Int?
+
   novelId       String
   novel         Novel       @relation(fields: [novelId], references: [id], onDelete: Cascade)
   comments      Comment[]
   readHistory   ReadHistory[]
+
+  // Writer/Reader features
+  versions           ChapterVersion[]
+  writingSessions    WritingSession[]
+
+  // Coin module
+  coinSpends         CoinSpend[]
 
   @@unique([novelId, chapterNumber])
   @@index([novelId, isPublished])
@@ -313,4 +382,276 @@ model Report {
   reportedComment   Comment? @relation("ReportedComment", fields: [reportedCommentId], references: [id])
 
   @@index([status])
+}
+
+// ─────────────────────────────────────────
+// WRITING SESSION (Quick Resume)
+// ─────────────────────────────────────────
+
+model WritingSession {
+  id              String   @id @default(cuid())
+  userId          String
+  novelId         String
+  chapterId       String?
+  lastContent     Json?
+  cursorPosition  Int      @default(0)
+  wordCount       Int      @default(0)
+  updatedAt       DateTime @updatedAt
+  createdAt       DateTime @default(now())
+
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  novel           Novel    @relation(fields: [novelId], references: [id], onDelete: Cascade)
+  chapter         Chapter? @relation(fields: [chapterId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, novelId])
+  @@index([userId])
+}
+
+// ─────────────────────────────────────────
+// CHAPTER VERSION HISTORY
+// ─────────────────────────────────────────
+
+model ChapterVersion {
+  id          String   @id @default(cuid())
+  chapterId   String
+  content     Json
+  wordCount   Int
+  savedAt     DateTime @default(now())
+  label       String?
+
+  savedById   String
+  chapter     Chapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  savedBy     User     @relation("VersionSavedBy", fields: [savedById], references: [id])
+
+  @@index([chapterId, savedAt])
+}
+
+// ─────────────────────────────────────────
+// WRITING GOAL & STREAK
+// ─────────────────────────────────────────
+
+model WritingGoal {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  dailyWordTarget Int      @default(500)
+  reminderTime    String?
+  reminderDays    String[]
+  isReminderOn    Boolean  @default(false)
+  lineUserId      String?
+
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model WritingStreak {
+  id              String    @id @default(cuid())
+  userId          String    @unique
+  currentStreak   Int       @default(0)
+  longestStreak   Int       @default(0)
+  lastWrittenDate DateTime?
+  totalDays       Int       @default(0)
+  totalWords      Int       @default(0)
+  graceUsed       Boolean   @default(false)
+
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model DailyWritingLog {
+  id          String   @id @default(cuid())
+  userId      String
+  date        DateTime @db.Date
+  wordCount   Int      @default(0)
+  minuteSpent Int      @default(0)
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@index([userId, date])
+}
+
+// ─────────────────────────────────────────
+// READING STREAK
+// ─────────────────────────────────────────
+
+model ReadingStreak {
+  id              String    @id @default(cuid())
+  userId          String    @unique
+  currentStreak   Int       @default(0)
+  longestStreak   Int       @default(0)
+  lastReadDate    DateTime?
+  totalChapters   Int       @default(0)
+  totalNovels     Int       @default(0)
+
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─────────────────────────────────────────
+// COMPLETION ALERT
+// ─────────────────────────────────────────
+
+model CompletionAlert {
+  userId    String
+  novelId   String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  novel     Novel    @relation(fields: [novelId], references: [id], onDelete: Cascade)
+
+  @@id([userId, novelId])
+  @@index([novelId])
+}
+
+// ─────────────────────────────────────────
+// BADGES & ACHIEVEMENTS
+// ─────────────────────────────────────────
+
+model Badge {
+  id          String        @id @default(cuid())
+  key         String        @unique
+  name        String
+  description String
+  icon        String
+  category    BadgeCategory
+
+  userBadges  UserBadge[]
+}
+
+model UserBadge {
+  id          String   @id @default(cuid())
+  userId      String
+  badgeId     String
+  unlockedAt  DateTime @default(now())
+  isNew       Boolean  @default(true)
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badge       Badge    @relation(fields: [badgeId], references: [id])
+
+  @@unique([userId, badgeId])
+  @@index([userId])
+}
+
+// ─────────────────────────────────────────
+// COIN PACK
+// ─────────────────────────────────────────
+
+model CoinPack {
+  id          String   @id @default(cuid())
+  name        String
+  price       Int
+  coins       Int
+  bonusCoins  Int      @default(0)
+  isActive    Boolean  @default(true)
+  isFeatured  Boolean  @default(false)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  transactions CoinTransaction[]
+}
+
+// ─────────────────────────────────────────
+// COIN TRANSACTION
+// ─────────────────────────────────────────
+
+model CoinTransaction {
+  id              String        @id @default(cuid())
+  userId          String
+  coinPackId      String
+  coinsGranted    Int
+  paidAmount      Int
+  currency        String        @default("THB")
+
+  paymentGateway  String
+  gatewayTxId     String        @unique
+  gatewayPayload  Json?
+  paymentMethod   String?
+
+  status          CoinTxStatus  @default(PENDING)
+  failureCode     String?
+  failureMessage  String?
+
+  createdAt       DateTime      @default(now())
+  completedAt     DateTime?
+  expiredAt       DateTime?
+
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  coinPack        CoinPack      @relation(fields: [coinPackId], references: [id])
+
+  @@index([userId])
+  @@index([gatewayTxId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// ─────────────────────────────────────────
+// COIN SPEND
+// ─────────────────────────────────────────
+
+model CoinSpend {
+  id          String   @id @default(cuid())
+  userId      String
+  chapterId   String
+  novelId     String
+  amount      Int
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chapter     Chapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  novel       Novel    @relation(fields: [novelId], references: [id], onDelete: Cascade)
+
+  writerRevenue WriterRevenue?
+
+  @@unique([userId, chapterId])
+  @@index([userId])
+  @@index([novelId])
+}
+
+// ─────────────────────────────────────────
+// COIN LEDGER (Immutable Audit Log)
+// ─────────────────────────────────────────
+
+model CoinLedger {
+  id            String          @id @default(cuid())
+  userId        String
+  type          CoinLedgerType
+  amount        Int
+  balanceBefore Int
+  balanceAfter  Int
+  refId         String
+  note          String?
+  createdAt     DateTime        @default(now())
+
+  user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([refId])
+}
+
+// ─────────────────────────────────────────
+// WRITER REVENUE
+// ─────────────────────────────────────────
+
+model WriterRevenue {
+  id          String   @id @default(cuid())
+  writerId    String
+  coinSpendId String   @unique
+  coinsEarned Int
+  thbAmount   Decimal  @db.Decimal(10, 2)
+  createdAt   DateTime @default(now())
+
+  writer      User      @relation("WriterEarnings", fields: [writerId], references: [id])
+  coinSpend   CoinSpend @relation(fields: [coinSpendId], references: [id])
+
+  @@index([writerId, createdAt])
+}
+
+model WithdrawalRequest {
+  id          String        @id @default(cuid())
+  writerId    String
+  amount      Decimal       @db.Decimal(10, 2)
+  status      RevenueStatus @default(PENDING)
+  bankAccount String?
+  paidAt      DateTime?
+  createdAt   DateTime      @default(now())
+
+  writer      User          @relation("Withdrawals", fields: [writerId], references: [id])
+
+  @@index([writerId])
 }

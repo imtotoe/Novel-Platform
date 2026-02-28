@@ -13,7 +13,7 @@ export default async function NewNovelPage() {
 
   return (
     <div className="mx-auto max-w-2xl">
-      <NovelForm genres={genres} />
+      <NovelForm genres={genres} userId={session.user.id} />
     </div>
   );
 }

@@ -8,7 +8,6 @@ import {
   BookOpen,
   Menu,
   Search,
-  Bell,
   PenTool,
   LogOut,
   User,
@@ -16,7 +15,11 @@ import {
   Library,
   LayoutDashboard,
   Shield,
+  Sun,
+  Moon,
+  Monitor,
 } from "lucide-react";
+import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -34,6 +37,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+import { NotificationBell } from "@/components/community/NotificationBell";
 
 const publicNav = [
   { href: "/", label: "หน้าแรก" },
@@ -45,9 +49,16 @@ export function Navbar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  const { theme, setTheme } = useTheme();
   const user = session?.user;
   const isWriter = user?.role === "WRITER" || user?.role === "ADMIN";
   const isAdmin = user?.role === "ADMIN";
+
+  const cycleTheme = () => {
+    if (theme === "light") setTheme("dark");
+    else if (theme === "dark") setTheme("system");
+    else setTheme("light");
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -148,11 +159,17 @@ export function Navbar() {
                 </Button>
               )}
 
-              <Button variant="ghost" size="icon" asChild>
-                <Link href="/notifications">
-                  <Bell className="h-4 w-4" />
-                </Link>
+              <Button variant="ghost" size="icon" onClick={cycleTheme} className="h-8 w-8">
+                {theme === "dark" ? (
+                  <Moon className="h-4 w-4" />
+                ) : theme === "light" ? (
+                  <Sun className="h-4 w-4" />
+                ) : (
+                  <Monitor className="h-4 w-4" />
+                )}
               </Button>
+
+              <NotificationBell />
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

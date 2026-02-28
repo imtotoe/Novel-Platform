@@ -4,6 +4,7 @@ config({ path: ".env.local" });
 import { PrismaClient } from "../src/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import pg from "pg";
+import bcrypt from "bcryptjs";
 
 const pool = new pg.Pool({ connectionString: process.env.DIRECT_URL });
 const adapter = new PrismaPg(pool);
@@ -25,6 +26,22 @@ const genres = [
 ];
 
 async function main() {
+  // Seed admin user
+  console.log("Seeding admin user...");
+  const adminPassword = await bcrypt.hash("admin1234", 10);
+  await prisma.user.upsert({
+    where: { email: "admin@novelspace.com" },
+    update: {},
+    create: {
+      email: "admin@novelspace.com",
+      username: "admin",
+      displayName: "Admin",
+      passwordHash: adminPassword,
+      role: "ADMIN",
+    },
+  });
+
+  // Seed genres
   console.log("Seeding genres...");
   for (const genre of genres) {
     await prisma.genre.upsert({

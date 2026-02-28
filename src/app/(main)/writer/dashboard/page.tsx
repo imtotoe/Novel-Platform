@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BookText, Eye, ThumbsUp, MessageSquare } from "lucide-react";
+import { QuickResumeBanner } from "@/components/writer/QuickResumeBanner";
 
 export const metadata = { title: "Writer Dashboard" };
 
@@ -34,6 +35,8 @@ export default async function WriterDashboardPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Writer Dashboard</h1>
+
+      <QuickResumeBanner />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => {

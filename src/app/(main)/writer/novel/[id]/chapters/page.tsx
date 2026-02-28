@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PlusCircle, Edit, Eye, EyeOff } from "lucide-react";
 import { ChapterPublishButton } from "@/components/novel/ChapterPublishButton";
+import { NovelPublishButton } from "@/components/novel/NovelPublishButton";
 
 export const metadata = { title: "จัดการ Chapter" };
 
@@ -43,6 +44,7 @@ export default async function ChaptersPage({
           </p>
         </div>
         <div className="flex gap-2">
+          <NovelPublishButton novelId={id} isPublished={novel.isPublished} />
           <Button variant="outline" size="sm" asChild>
             <Link href={`/writer/novel/${id}/edit`}>
               <Edit className="mr-1.5 h-4 w-4" />

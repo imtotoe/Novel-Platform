@@ -12,7 +12,7 @@ import type { JSONContent } from "@tiptap/react";
 
 interface TiptapEditorProps {
   content?: JSONContent;
-  onChange?: (json: JSONContent) => void;
+  onChange?: (json: JSONContent, wordCount: number) => void;
   placeholder?: string;
 }
 
@@ -27,8 +27,10 @@ export function TiptapEditor({ content, onChange, placeholder = "เริ่ม
       Link.configure({ openOnClick: false }),
     ],
     content,
+    immediatelyRender: false,
     onUpdate: ({ editor }) => {
-      onChange?.(editor.getJSON());
+      const words = editor.storage.characterCount.words();
+      onChange?.(editor.getJSON(), words);
     },
     editorProps: {
       attributes: {

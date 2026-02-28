@@ -1,15 +1,24 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { TiptapEditor } from "@/components/editor/TiptapEditor";
-import { Loader2, Save } from "lucide-react";
+import { Loader2, Save, History, RotateCcw, Clock } from "lucide-react";
 import { toast } from "sonner";
 import type { JSONContent } from "@tiptap/react";
+
+interface ChapterVersion {
+  id: string;
+  wordCount: number;
+  savedAt: string;
+  label: string | null;
+  savedBy: { username: string; displayName: string | null };
+}
 
 interface ChapterFormProps {
   novelId: string;
@@ -33,11 +42,131 @@ export function ChapterForm({
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [content, setContent] = useState<JSONContent | undefined>(chapter?.content);
+  const [wordCount, setWordCount] = useState(0);
+  const [autoSaveStatus, setAutoSaveStatus] = useState<"saved" | "saving" | "unsaved">("saved");
+  const [versions, setVersions] = useState<ChapterVersion[]>([]);
+  const [versionsOpen, setVersionsOpen] = useState(false);
   const isEditing = !!chapter;
+  const dirtyRef = useRef(false);
+  const autoSaveTimerRef = useRef<ReturnType<typeof setInterval>>(undefined);
+  const contentRef = useRef<JSONContent | undefined>(content);
 
-  const handleContentChange = useCallback((json: JSONContent) => {
+  // Keep contentRef in sync
+  useEffect(() => {
+    contentRef.current = content;
+  }, [content]);
+
+  const handleContentChange = useCallback((json: JSONContent, words: number) => {
     setContent(json);
+    setWordCount(words);
+    dirtyRef.current = true;
+    setAutoSaveStatus("unsaved");
   }, []);
+
+  // Auto-save every 30 seconds
+  useEffect(() => {
+    if (!isEditing) return;
+
+    autoSaveTimerRef.current = setInterval(async () => {
+      if (!dirtyRef.current || !contentRef.current) return;
+      dirtyRef.current = false;
+      setAutoSaveStatus("saving");
+
+      try {
+        // Save version
+        await fetch(`/api/chapters/${chapter.id}/versions`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            content: contentRef.current,
+            wordCount,
+            label: "auto-save",
+          }),
+        });
+
+        // Update writing session
+        await fetch("/api/writer/session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            novelId,
+            chapterId: chapter.id,
+            lastContent: contentRef.current,
+            wordCount,
+          }),
+        });
+
+        setAutoSaveStatus("saved");
+      } catch {
+        setAutoSaveStatus("unsaved");
+      }
+    }, 30000);
+
+    return () => {
+      if (autoSaveTimerRef.current) clearInterval(autoSaveTimerRef.current);
+    };
+  }, [isEditing, chapter?.id, novelId, wordCount]);
+
+  // Manual save (Ctrl+S)
+  useEffect(() => {
+    if (!isEditing) return;
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === "s") {
+        e.preventDefault();
+        manualSave();
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isEditing, chapter?.id]);
+
+  async function manualSave() {
+    if (!contentRef.current || !chapter) return;
+    dirtyRef.current = false;
+    setAutoSaveStatus("saving");
+
+    try {
+      await fetch(`/api/chapters/${chapter.id}/versions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content: contentRef.current,
+          wordCount,
+          label: "manual",
+        }),
+      });
+      setAutoSaveStatus("saved");
+      toast.success("บันทึก snapshot แล้ว");
+    } catch {
+      setAutoSaveStatus("unsaved");
+    }
+  }
+
+  // Load versions when panel opens
+  async function loadVersions() {
+    if (!chapter) return;
+    const res = await fetch(`/api/chapters/${chapter.id}/versions`);
+    const data = await res.json();
+    if (data.versions) setVersions(data.versions);
+  }
+
+  async function restoreVersion(versionId: string) {
+    if (!chapter) return;
+    const res = await fetch(`/api/chapters/${chapter.id}/versions/restore`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ versionId }),
+    });
+    if (res.ok) {
+      toast.success("กู้คืนเวอร์ชันแล้ว");
+      router.refresh();
+      setVersionsOpen(false);
+    } else {
+      toast.error("เกิดข้อผิดพลาด");
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>, isDraft: boolean) {
     e.preventDefault();
@@ -51,6 +180,15 @@ export function ChapterForm({
       toast.error("กรุณาเขียนเนื้อหา");
       setLoading(false);
       return;
+    }
+
+    // Save "before-publish" version if publishing
+    if (!isDraft && isEditing) {
+      await fetch(`/api/chapters/${chapter.id}/versions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content, wordCount, label: "before-publish" }),
+      });
     }
 
     const data = { title, content, chapterNumber, isDraft };
@@ -92,7 +230,77 @@ export function ChapterForm({
             {isEditing ? "แก้ไข Chapter" : "เขียน Chapter ใหม่"}
           </h1>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          {/* Auto-save indicator */}
+          {isEditing && (
+            <span className="text-xs text-muted-foreground flex items-center gap-1">
+              {autoSaveStatus === "saving" && (
+                <><Loader2 className="h-3 w-3 animate-spin" /> กำลังบันทึก...</>
+              )}
+              {autoSaveStatus === "saved" && (
+                <><Clock className="h-3 w-3" /> บันทึกแล้ว</>
+              )}
+              {autoSaveStatus === "unsaved" && (
+                <><Clock className="h-3 w-3 text-yellow-500" /> ยังไม่ได้บันทึก</>
+              )}
+            </span>
+          )}
+
+          {/* Version History */}
+          {isEditing && (
+            <Sheet open={versionsOpen} onOpenChange={(open) => {
+              setVersionsOpen(open);
+              if (open) loadVersions();
+            }}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="sm">
+                  <History className="mr-1.5 h-4 w-4" />
+                  ประวัติ
+                </Button>
+              </SheetTrigger>
+              <SheetContent>
+                <SheetHeader>
+                  <SheetTitle>ประวัติเวอร์ชัน</SheetTitle>
+                </SheetHeader>
+                <div className="mt-4 space-y-2">
+                  {versions.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-8">
+                      ยังไม่มีเวอร์ชัน
+                    </p>
+                  ) : (
+                    versions.map((v) => (
+                      <div
+                        key={v.id}
+                        className="flex items-center justify-between rounded-lg border p-3"
+                      >
+                        <div>
+                          <p className="text-sm font-medium">
+                            {new Date(v.savedAt).toLocaleString("th-TH")}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {v.label === "auto-save" && "บันทึกอัตโนมัติ"}
+                            {v.label === "manual" && "บันทึกด้วยตนเอง"}
+                            {v.label === "before-publish" && "ก่อนเผยแพร่"}
+                            {v.label === "before-restore" && "ก่อนกู้คืน"}
+                            {" "} — {v.wordCount.toLocaleString()} คำ
+                          </p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => restoreVersion(v.id)}
+                        >
+                          <RotateCcw className="mr-1 h-3 w-3" />
+                          กู้คืน
+                        </Button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </SheetContent>
+            </Sheet>
+          )}
+
           <Button
             type="button"
             variant="outline"

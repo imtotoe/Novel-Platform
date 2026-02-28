@@ -33,6 +33,7 @@ export default async function EditNovelPage({
     <div className="mx-auto max-w-2xl">
       <NovelForm
         genres={genres}
+        userId={session.user.id}
         novel={{
           id: novel.id,
           title: novel.title,

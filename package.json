@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --port 3100",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
@@ -31,6 +31,7 @@
     "next": "^16.1.6",
     "next-auth": "^5.0.0-beta.30",
     "next-themes": "^0.4.6",
+    "omise": "^1.1.0",
     "pg": "^8.19.0",
     "radix-ui": "^1.4.3",
     "react": "^19.2.4",
@@ -39,7 +40,8 @@
     "slugify": "^1.6.6",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.5.0",
-    "zod": "^4.3.6"
+    "zod": "^4.3.6",
+    "zustand": "^5.0.11"
   },
   "prisma": {
     "seed": "npx tsx prisma/seed.ts"

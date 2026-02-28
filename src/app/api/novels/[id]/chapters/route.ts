@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { chapterSchema } from "@/lib/validations";
+import { extractText } from "@/lib/utils";
 
 export async function GET(
   request: Request,
@@ -71,14 +72,3 @@ export async function POST(
   return NextResponse.json({ success: true, chapter }, { status: 201 });
 }
 
-function extractText(tiptapJson: Record<string, unknown>): string {
-  if (!tiptapJson || typeof tiptapJson !== "object") return "";
-  let text = "";
-  if (tiptapJson.text && typeof tiptapJson.text === "string") text += tiptapJson.text;
-  if (Array.isArray(tiptapJson.content)) {
-    for (const node of tiptapJson.content) {
-      text += extractText(node as Record<string, unknown>) + " ";
-    }
-  }
-  return text.trim();
-}

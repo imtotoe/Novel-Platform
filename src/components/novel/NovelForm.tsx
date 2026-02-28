@@ -1,16 +1,18 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, X } from "lucide-react";
+import { Loader2, X, ImagePlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { uploadCover } from "@/lib/supabase";
 
 interface Genre {
   id: string;
@@ -30,9 +32,10 @@ interface NovelFormProps {
     tags: { id: string; name: string }[];
   };
   genres: Genre[];
+  userId: string;
 }
 
-export function NovelForm({ novel, genres }: NovelFormProps) {
+export function NovelForm({ novel, genres, userId }: NovelFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [selectedGenres, setSelectedGenres] = useState<string[]>(
@@ -42,6 +45,9 @@ export function NovelForm({ novel, genres }: NovelFormProps) {
   const [tags, setTags] = useState<string[]>(
     novel?.tags.map((t) => t.name) || []
   );
+  const [coverUrl, setCoverUrl] = useState<string | null>(novel?.cover || null);
+  const [coverPreview, setCoverPreview] = useState<string | null>(novel?.cover || null);
+  const [uploadingCover, setUploadingCover] = useState(false);
   const isEditing = !!novel;
 
   const toggleGenre = (id: string) => {
@@ -58,6 +64,39 @@ export function NovelForm({ novel, genres }: NovelFormProps) {
     }
   };
 
+  async function handleCoverChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error("รองรับเฉพาะไฟล์ JPG, PNG, WEBP");
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("ไฟล์ใหญ่เกินไป (สูงสุด 2MB)");
+      return;
+    }
+
+    // Show local preview immediately
+    const localUrl = URL.createObjectURL(file);
+    setCoverPreview(localUrl);
+
+    // Upload to Supabase
+    setUploadingCover(true);
+    try {
+      const novelId = novel?.id || "temp-" + Date.now();
+      const url = await uploadCover(file, userId, novelId);
+      setCoverUrl(url);
+      toast.success("อัพโหลดปกสำเร็จ");
+    } catch {
+      toast.error("อัพโหลดปกล้มเหลว");
+      setCoverPreview(coverUrl);
+    } finally {
+      setUploadingCover(false);
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
@@ -66,6 +105,7 @@ export function NovelForm({ novel, genres }: NovelFormProps) {
     const data = {
       title: formData.get("title") as string,
       synopsis: formData.get("synopsis") as string,
+      cover: coverUrl,
       status: "DRAFT" as const,
       genreIds: selectedGenres,
       tags,
@@ -93,6 +133,12 @@ export function NovelForm({ novel, genres }: NovelFormProps) {
       toast.error("เกิดข้อผิดพลาด กรุณาลองใหม่");
       setLoading(false);
       return;
+    }
+
+    // If cover was uploaded with temp ID, re-upload with real novel ID
+    if (!isEditing && coverUrl && coverUrl.includes("temp-")) {
+      // The cover is already uploaded, we just update the novel with the URL
+      // For new novels, we could re-upload with proper path, but the URL already works
     }
 
     toast.success(isEditing ? "อัพเดตนิยายสำเร็จ" : "สร้างนิยายสำเร็จ");
@@ -186,6 +232,65 @@ export function NovelForm({ novel, genres }: NovelFormProps) {
               </div>
             )}
           </div>
+
+          {/* Cover Image */}
+          <div className="space-y-2">
+            <Label>ปกนิยาย</Label>
+            <div className="flex items-start gap-4">
+              <label
+                className={cn(
+                  "relative flex h-48 w-32 cursor-pointer items-center justify-center overflow-hidden rounded-lg border-2 border-dashed transition-colors hover:border-primary",
+                  uploadingCover && "pointer-events-none opacity-60"
+                )}
+              >
+                {coverPreview ? (
+                  <Image
+                    src={coverPreview}
+                    alt="ปกนิยาย"
+                    fill
+                    className="object-cover"
+                    unoptimized
+                  />
+                ) : (
+                  <div className="flex flex-col items-center gap-1 text-muted-foreground">
+                    <ImagePlus className="h-8 w-8" />
+                    <span className="text-xs">เลือกรูป</span>
+                  </div>
+                )}
+                {uploadingCover && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                    <Loader2 className="h-6 w-6 animate-spin text-white" />
+                  </div>
+                )}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={handleCoverChange}
+                />
+              </label>
+              <div className="text-xs text-muted-foreground">
+                <p>รองรับ JPG, PNG, WEBP</p>
+                <p>ขนาดไม่เกิน 2MB</p>
+                <p>แนะนำ 2:3 (เช่น 400x600)</p>
+                {coverPreview && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="mt-2 h-7 text-xs text-destructive hover:text-destructive"
+                    onClick={() => {
+                      setCoverUrl(null);
+                      setCoverPreview(null);
+                    }}
+                  >
+                    <X className="mr-1 h-3 w-3" />
+                    ลบรูปปก
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -193,7 +298,7 @@ export function NovelForm({ novel, genres }: NovelFormProps) {
         <Button type="button" variant="outline" onClick={() => router.back()}>
           ยกเลิก
         </Button>
-        <Button type="submit" disabled={loading}>
+        <Button type="submit" disabled={loading || uploadingCover}>
           {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           {isEditing ? "บันทึก" : "สร้างนิยาย"}
         </Button>

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { extractText } from "@/lib/utils";
 
 export async function GET(
   request: Request,
@@ -55,15 +56,20 @@ export async function PATCH(
 
   const body = await request.json();
 
-  // Recalculate word count if content changed
-  if (body.content) {
-    body.contentText = extractText(body.content);
-    body.wordCount = body.contentText.split(/\s+/).filter(Boolean).length;
+  // Whitelist allowed fields to prevent mass assignment
+  const { title, content, chapterNumber } = body;
+  const data: Record<string, unknown> = {};
+  if (title !== undefined) data.title = title;
+  if (chapterNumber !== undefined) data.chapterNumber = chapterNumber;
+  if (content !== undefined) {
+    data.content = content;
+    data.contentText = extractText(content);
+    data.wordCount = (data.contentText as string).split(/\s+/).filter(Boolean).length;
   }
 
   const updated = await prisma.chapter.update({
     where: { id },
-    data: body,
+    data,
   });
 
   return NextResponse.json({ success: true, chapter: updated });
@@ -91,14 +97,3 @@ export async function DELETE(
   return NextResponse.json({ success: true });
 }
 
-function extractText(tiptapJson: Record<string, unknown>): string {
-  if (!tiptapJson || typeof tiptapJson !== "object") return "";
-  let text = "";
-  if (tiptapJson.text && typeof tiptapJson.text === "string") text += tiptapJson.text;
-  if (Array.isArray(tiptapJson.content)) {
-    for (const node of tiptapJson.content) {
-      text += extractText(node as Record<string, unknown>) + " ";
-    }
-  }
-  return text.trim();
-}

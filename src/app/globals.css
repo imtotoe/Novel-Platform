@@ -124,3 +124,27 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Reading theme transitions */
+.reading-theme-sepia {
+  background-color: #F5EFDC;
+  color: #5C4B3E;
+}
+.reading-theme-dark {
+  background-color: #1E1E1E;
+  color: #D4D4D4;
+}
+.reading-theme-night {
+  background-color: #0A0A0A;
+  color: #A89B8C;
+}
+
+/* Paragraph spacing for reader */
+.ProseMirror p + p {
+  margin-top: var(--paragraph-spacing, 0.8rem);
+}
+
+/* Sarabun font mapping */
+.font-\[Sarabun\] {
+  font-family: var(--font-sarabun), sans-serif;
+}
