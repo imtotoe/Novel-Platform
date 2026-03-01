@@ -2,17 +2,18 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { BookOpen, Settings, Minimize2 } from "lucide-react";
+import { BookOpen, Minimize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSession } from "next-auth/react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { ReaderSettings, type ReaderSettingsHandle } from "./ReaderSettings";
 
 interface ReaderTopBarProps {
   novelTitle: string;
   chapterNumber: number;
   visible: boolean;
-  onOpenSettings?: () => void;
+  settingsRef?: React.RefObject<ReaderSettingsHandle>;
   onExitImmersive?: () => void;
 }
 
@@ -20,7 +21,7 @@ export function ReaderTopBar({
   novelTitle,
   chapterNumber,
   visible,
-  onOpenSettings,
+  settingsRef,
   onExitImmersive,
 }: ReaderTopBarProps) {
   const [scrollPct, setScrollPct] = useState(0);
@@ -65,20 +66,8 @@ export function ReaderTopBar({
             </p>
           </div>
 
-          {/* Right controls */}
-          <div className="flex items-center gap-1 shrink-0">
-            {/* Settings */}
-            {onOpenSettings && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={onOpenSettings}
-                title="ตั้งค่าการอ่าน"
-              >
-                <Settings className="h-4 w-4" />
-              </Button>
-            )}
+          {/* Right controls — desktop only (mobile/tablet uses tap-to-open sheet) */}
+          <div className="hidden md:flex items-center gap-1 shrink-0">
             {/* Exit immersive */}
             {onExitImmersive && (
               <Button
@@ -91,9 +80,14 @@ export function ReaderTopBar({
                 <Minimize2 className="h-4 w-4" />
               </Button>
             )}
-            {/* User avatar or login link */}
+            {/* Reading settings — same component as normal mode */}
+            {settingsRef && <ReaderSettings ref={settingsRef} />}
+          </div>
+
+          {/* Avatar — always visible */}
+          <div className="shrink-0 ml-1">
             {user ? (
-              <Link href={`/author/${user.username}`} className="ml-1">
+              <Link href={`/author/${user.username}`}>
                 <Avatar className="h-7 w-7">
                   <AvatarImage src={user.image ?? undefined} />
                   <AvatarFallback className="text-xs">

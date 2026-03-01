@@ -233,7 +233,7 @@ export function ChapterReader({
           novelTitle={novelTitle}
           chapterNumber={chapter.chapterNumber}
           visible={controlsVisible && !mobileSheetOpen}
-          onOpenSettings={openSettings}
+          settingsRef={settingsRef}
           onExitImmersive={() => setImmersiveMode(false)}
         />
       )}
