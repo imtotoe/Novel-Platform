@@ -235,6 +235,7 @@ export function ChapterReader({
           visible={controlsVisible && !mobileSheetOpen}
           settingsRef={settingsRef}
           onExitImmersive={() => setImmersiveMode(false)}
+          onOpenChapterList={allChapters && allChapters.length > 0 ? () => setChapterListOpen(true) : undefined}
         />
       )}
 
@@ -243,10 +244,14 @@ export function ChapterReader({
         <div className="z-40 sticky top-14 border-b bg-background/95 backdrop-blur transition-all duration-300">
           <div className="mx-auto flex h-12 max-w-3xl items-center justify-between px-4">
             <div className="flex items-center gap-2 min-w-0">
-              <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
-                <Link href={`/novel/${novelSlug}`}>
-                  <List className="h-4 w-4" />
-                </Link>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setChapterListOpen(true)}
+                title="สารบัญ"
+              >
+                <List className="h-4 w-4" />
               </Button>
               <span className="truncate text-xs text-muted-foreground">
                 {novelTitle}

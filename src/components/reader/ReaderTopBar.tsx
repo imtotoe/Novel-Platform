@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { BookOpen, Minimize2 } from "lucide-react";
+import { BookOpen, Minimize2, List } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSession } from "next-auth/react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -15,6 +15,7 @@ interface ReaderTopBarProps {
   visible: boolean;
   settingsRef?: React.RefObject<ReaderSettingsHandle | null>;
   onExitImmersive?: () => void;
+  onOpenChapterList?: () => void;
 }
 
 export function ReaderTopBar({
@@ -23,6 +24,7 @@ export function ReaderTopBar({
   visible,
   settingsRef,
   onExitImmersive,
+  onOpenChapterList,
 }: ReaderTopBarProps) {
   const [scrollPct, setScrollPct] = useState(0);
   const { data: session } = useSession();
@@ -68,6 +70,18 @@ export function ReaderTopBar({
 
           {/* Right controls — desktop only (mobile/tablet uses tap-to-open sheet) */}
           <div className="hidden md:flex items-center gap-1 shrink-0">
+            {/* Chapter list */}
+            {onOpenChapterList && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={onOpenChapterList}
+                title="สารบัญ"
+              >
+                <List className="h-4 w-4" />
+              </Button>
+            )}
             {/* Exit immersive */}
             {onExitImmersive && (
               <Button

@@ -9,6 +9,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+import { useMediaQuery } from "@/lib/useMediaQuery";
 
 interface ChapterItem {
   id: string;
@@ -32,9 +33,14 @@ export function ChapterListSheet({
   open,
   onOpenChange,
 }: ChapterListSheetProps) {
+  const isDesktop = useMediaQuery("(min-width: 768px)");
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="h-[70vh] rounded-t-2xl">
+      <SheetContent
+        side={isDesktop ? "left" : "bottom"}
+        className={isDesktop ? "w-80 overflow-y-auto" : "h-[70vh] rounded-t-2xl"}
+      >
         <SheetHeader>
           <SheetTitle>สารบัญ ({chapters.length} ตอน)</SheetTitle>
         </SheetHeader>
