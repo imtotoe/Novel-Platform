@@ -16,6 +16,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, BookOpen, PenTool } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -26,6 +27,7 @@ export default function RegisterPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [role, setRole] = useState<Role>("READER");
+  const [acceptTerms, setAcceptTerms] = useState(false);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -38,6 +40,7 @@ export default function RegisterPage() {
       password: formData.get("password") as string,
       displayName: formData.get("displayName") as string || undefined,
       role,
+      acceptTerms,
     };
 
     const res = await fetch("/api/auth/register", {
@@ -169,7 +172,25 @@ export default function RegisterPage() {
             />
           </div>
 
-          <Button type="submit" className="w-full" disabled={loading}>
+          <div className="flex items-start space-x-2">
+            <Checkbox
+              id="acceptTerms"
+              checked={acceptTerms}
+              onCheckedChange={(checked) => setAcceptTerms(checked === true)}
+            />
+            <label htmlFor="acceptTerms" className="text-sm leading-snug">
+              ฉันยอมรับ{" "}
+              <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-primary underline">
+                เงื่อนไขการใช้งาน
+              </a>{" "}
+              และ{" "}
+              <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-primary underline">
+                นโยบายความเป็นส่วนตัว
+              </a>
+            </label>
+          </div>
+
+          <Button type="submit" className="w-full" disabled={loading || !acceptTerms}>
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             สมัครสมาชิก
           </Button>

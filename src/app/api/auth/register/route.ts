@@ -15,7 +15,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { email, username, password, role, displayName } = validated.data;
+    const { email, username, password, role, displayName, acceptTerms: _ } = validated.data;
 
     const existingEmail = await prisma.user.findUnique({ where: { email } });
     if (existingEmail) {
@@ -42,6 +42,7 @@ export async function POST(request: Request) {
         passwordHash,
         role,
         displayName: displayName || username,
+        consentAt: new Date(),
       },
       select: {
         id: true,

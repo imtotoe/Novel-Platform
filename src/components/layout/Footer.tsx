@@ -36,9 +36,9 @@ export function Footer() {
           <div>
             <h4 className="mb-3 text-sm font-semibold">เกี่ยวกับ</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
-              <li><Link href="#" className="hover:text-foreground">เงื่อนไขการใช้งาน</Link></li>
-              <li><Link href="#" className="hover:text-foreground">นโยบายความเป็นส่วนตัว</Link></li>
-              <li><Link href="#" className="hover:text-foreground">ติดต่อเรา</Link></li>
+              <li><Link href="/terms" className="hover:text-foreground">เงื่อนไขการใช้งาน</Link></li>
+              <li><Link href="/privacy" className="hover:text-foreground">นโยบายความเป็นส่วนตัว</Link></li>
+              <li><a href="mailto:contact@storiwrite.com" className="hover:text-foreground">ติดต่อเรา</a></li>
             </ul>
           </div>
         </div>

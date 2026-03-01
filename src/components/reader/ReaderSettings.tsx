@@ -1,5 +1,6 @@
 "use client";
 
+import { forwardRef, useImperativeHandle, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
@@ -19,6 +20,10 @@ import {
 } from "@/lib/useReaderSettings";
 import { cn } from "@/lib/utils";
 
+export interface ReaderSettingsHandle {
+  open: () => void;
+}
+
 const fontOptions: { value: FontFamily; label: string; className: string }[] = [
   { value: "sans", label: "Sans", className: "font-sans" },
   { value: "serif", label: "Serif", className: "font-serif" },
@@ -33,11 +38,16 @@ const themeOptions: { value: ReadingTheme; label: string; bg: string; text: stri
   { value: "night", label: "กลางคืน", bg: "bg-[#0A0A0A]", text: "text-[#A89B8C]" },
 ];
 
-export function ReaderSettings() {
+export const ReaderSettings = forwardRef<ReaderSettingsHandle>(function ReaderSettings(_, ref) {
   const s = useReaderSettings();
+  const [open, setOpen] = useState(false);
+
+  useImperativeHandle(ref, () => ({
+    open: () => setOpen(true),
+  }));
 
   return (
-    <Sheet>
+    <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
         <Button variant="ghost" size="icon" className="h-8 w-8">
           <Settings2 className="h-4 w-4" />
@@ -261,4 +271,4 @@ export function ReaderSettings() {
       </SheetContent>
     </Sheet>
   );
-}
+});

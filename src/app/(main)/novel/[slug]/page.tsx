@@ -21,6 +21,7 @@ import {
 import { BookmarkButton } from "@/components/community/BookmarkButton";
 import { VoteButton } from "@/components/community/VoteButton";
 import { CompletionAlertButton } from "@/components/novel/CompletionAlertButton";
+import { NovelBottomBar } from "@/components/novel/NovelBottomBar";
 import type { Metadata } from "next";
 
 interface NovelPageProps {
@@ -103,10 +104,28 @@ export default async function NovelDetailPage({ params }: NovelPageProps) {
     hasVoted = !!vote;
   }
 
+  // Fetch last read chapter for "Continue Reading" bottom bar
+  let lastReadChapterId: string | null = null;
+  let lastReadChapterNumber: number | null = null;
+  if (session?.user?.id && novel.chapters.length > 0) {
+    const lastRead = await prisma.readHistory.findFirst({
+      where: {
+        userId: session.user.id,
+        chapter: { novelId: novel.id },
+      },
+      orderBy: { lastReadAt: "desc" },
+      select: { chapter: { select: { id: true, chapterNumber: true } } },
+    });
+    if (lastRead) {
+      lastReadChapterId = lastRead.chapter.id;
+      lastReadChapterNumber = lastRead.chapter.chapterNumber;
+    }
+  }
+
   const totalWords = novel.chapters.reduce((sum, ch) => sum + ch.wordCount, 0);
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-6">
+    <div className="mx-auto max-w-4xl px-4 py-6 pb-20">
       {/* Header */}
       <div className="flex flex-col gap-6 sm:flex-row">
         {/* Cover */}
@@ -282,8 +301,17 @@ export default async function NovelDetailPage({ params }: NovelPageProps) {
           </p>
         )}
       </section>
+
+      {/* Sticky Bottom Action Bar */}
+      <NovelBottomBar
+        novelSlug={novel.slug}
+        novelId={novel.id}
+        firstChapterId={novel.chapters[0]?.id ?? null}
+        lastReadChapterId={lastReadChapterId}
+        lastReadChapterNumber={lastReadChapterNumber}
+        isBookmarked={isBookmarked}
+        isLoggedIn={!!session}
+      />
     </div>
   );
 }
-
-

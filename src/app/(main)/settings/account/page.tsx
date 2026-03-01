@@ -11,7 +11,7 @@ export default async function AccountSettingsPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <h1 className="text-2xl font-bold">ตั้งค่าบัญชี</h1>
-      <AccountSettingsClient email={session.user.email!} />
+      <AccountSettingsClient email={session.user.email!} username={session.user.username!} />
     </div>
   );
 }

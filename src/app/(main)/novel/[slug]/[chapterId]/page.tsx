@@ -170,6 +170,12 @@ export default async function ChapterPage({ params }: ChapterPageProps) {
         novelTitle={data.novel.title}
         prevChapter={data.prevChapter}
         nextChapter={data.nextChapter}
+        allChapters={
+          (data.canViewUnpublished
+            ? data.novel.chapters
+            : data.novel.chapters.filter((c) => c.isPublished)
+          ).map((c) => ({ id: c.id, title: c.title, chapterNumber: c.chapterNumber }))
+        }
       />
     </>
   );

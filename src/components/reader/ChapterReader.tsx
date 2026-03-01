@@ -1,17 +1,24 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, List, Maximize2, Minimize2 } from "lucide-react";
+import { toast } from "sonner";
 import { ChapterContent } from "./ChapterContent";
-import { ReaderSettings } from "./ReaderSettings";
+import { ReaderSettings, ReaderSettingsHandle } from "./ReaderSettings";
 import { CommentSection } from "@/components/community/CommentSection";
 import { ReadingProgress } from "./ReadingProgress";
+import { ProgressBar } from "./ProgressBar";
+import { ReaderTopBar } from "./ReaderTopBar";
+import { ReaderOverlay } from "./ReaderOverlay";
+import { ChapterListSheet } from "./ChapterListSheet";
 import { Separator } from "@/components/ui/separator";
 import { useReaderSettings } from "@/lib/useReaderSettings";
 import { cn } from "@/lib/utils";
 import type { JSONContent } from "@tiptap/react";
+import type { ReadingTheme } from "@/lib/useReaderSettings";
 
 interface ChapterData {
   id: string;
@@ -22,12 +29,20 @@ interface ChapterData {
   publishedAt: string | null;
 }
 
+interface ChapterNav {
+  id: string;
+  title: string;
+  chapterNumber: number;
+  coinPrice?: number | null;
+}
+
 interface ChapterReaderProps {
   chapter: ChapterData;
   novelSlug: string;
   novelTitle: string;
-  prevChapter: { id: string; title: string; chapterNumber: number } | null;
-  nextChapter: { id: string; title: string; chapterNumber: number } | null;
+  prevChapter: ChapterNav | null;
+  nextChapter: ChapterNav | null;
+  allChapters?: ChapterNav[];
 }
 
 const readingThemeStyles: Record<string, { bg: string; text: string }> = {
@@ -44,12 +59,15 @@ const fontFamilyMap: Record<string, string> = {
   mono: "font-mono",
 };
 
+const themeOrder: ReadingTheme[] = ["default", "sepia", "dark", "night"];
+
 export function ChapterReader({
   chapter,
   novelSlug,
   novelTitle,
   prevChapter,
   nextChapter,
+  allChapters,
 }: ChapterReaderProps) {
   const {
     fontSize,
@@ -62,13 +80,20 @@ export function ChapterReader({
     brightness,
     immersiveMode,
     toggleImmersiveMode,
+    setReadingTheme,
+    setImmersiveMode,
   } = useReaderSettings();
 
+  const router = useRouter();
   const theme = readingThemeStyles[readingTheme] || readingThemeStyles.default;
 
-  // --- Immersive mode: auto-hide controls on scroll ---
+  // --- Immersive mode state ---
   const [controlsVisible, setControlsVisible] = useState(true);
+  const [overlayVisible, setOverlayVisible] = useState(false);
   const [lastScrollY, setLastScrollY] = useState(0);
+  const [chapterListOpen, setChapterListOpen] = useState(false);
+  const settingsRef = useRef<ReaderSettingsHandle>(null);
+  const commentsRef = useRef<HTMLDivElement>(null);
 
   // Hide site navbar & footer when immersive
   useEffect(() => {
@@ -77,7 +102,6 @@ export function ChapterReader({
     if (immersiveMode) {
       navbar?.classList.add("!hidden");
       footer?.classList.add("!hidden");
-      // Push body to remove top spacing from navbar
       document.body.style.paddingTop = "0";
     } else {
       navbar?.classList.remove("!hidden");
@@ -91,15 +115,13 @@ export function ChapterReader({
     };
   }, [immersiveMode]);
 
-  // Auto-hide controls on scroll down, show on scroll up
+  // Auto-hide top bar on scroll down (immersive only)
   const handleScroll = useCallback(() => {
     if (!immersiveMode) return;
     const currentY = window.scrollY;
     if (currentY > lastScrollY && currentY > 100) {
-      // scrolling down → hide
       setControlsVisible(false);
     } else {
-      // scrolling up → show
       setControlsVisible(true);
     }
     setLastScrollY(currentY);
@@ -110,61 +132,125 @@ export function ChapterReader({
     return () => window.removeEventListener("scroll", handleScroll);
   }, [handleScroll]);
 
-  // Tap on reading area toggles controls in immersive mode
+  // Tap on reading area → show overlay (immersive) or do nothing (normal)
   const handleContentClick = useCallback(
     (e: React.MouseEvent) => {
       if (!immersiveMode) return;
-      // Don't toggle if clicking a link or button
       const target = e.target as HTMLElement;
       if (target.closest("a, button, [role=button]")) return;
-      setControlsVisible((prev) => !prev);
+      setOverlayVisible(true);
     },
     [immersiveMode]
   );
 
+  const dismissOverlay = useCallback(() => {
+    setOverlayVisible(false);
+  }, []);
+
+  function cycleTheme() {
+    const idx = themeOrder.indexOf(readingTheme);
+    const next = themeOrder[(idx + 1) % themeOrder.length];
+    setReadingTheme(next);
+  }
+
+  function scrollToComments() {
+    setImmersiveMode(false);
+    setTimeout(() => {
+      commentsRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 100);
+  }
+
+  function openSettings() {
+    settingsRef.current?.open();
+  }
+
+  // --- Swipe navigation (mobile, immersive mode only) ---
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+
+  useEffect(() => {
+    if (!immersiveMode) return;
+
+    function handleTouchStart(e: TouchEvent) {
+      const touch = e.touches[0];
+      touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+    }
+
+    function handleTouchEnd(e: TouchEvent) {
+      if (!touchStartRef.current) return;
+      const touch = e.changedTouches[0];
+      const dx = touch.clientX - touchStartRef.current.x;
+      const dy = touch.clientY - touchStartRef.current.y;
+      touchStartRef.current = null;
+
+      // Must be mostly horizontal and exceed threshold
+      if (Math.abs(dx) < 80 || Math.abs(dy) > 50) return;
+
+      if (dx < 0 && nextChapter) {
+        // Swipe left → next chapter
+        toast.info(`ตอนถัดไป → ตอนที่ ${nextChapter.chapterNumber}`);
+        router.push(`/novel/${novelSlug}/${nextChapter.id}`);
+      } else if (dx > 0 && prevChapter) {
+        // Swipe right → prev chapter
+        toast.info(`← ตอนก่อนหน้า ตอนที่ ${prevChapter.chapterNumber}`);
+        router.push(`/novel/${novelSlug}/${prevChapter.id}`);
+      } else if (dx < 0 && !nextChapter) {
+        toast.info("ยังไม่มีตอนถัดไป");
+      } else if (dx > 0 && !prevChapter) {
+        toast.info("นี่คือตอนแรก");
+      }
+    }
+
+    document.addEventListener("touchstart", handleTouchStart, { passive: true });
+    document.addEventListener("touchend", handleTouchEnd, { passive: true });
+    return () => {
+      document.removeEventListener("touchstart", handleTouchStart);
+      document.removeEventListener("touchend", handleTouchEnd);
+    };
+  }, [immersiveMode, nextChapter, prevChapter, novelSlug, router]);
+
   return (
     <div className={cn("relative", immersiveMode && "min-h-screen")}>
-      {/* Top Nav */}
-      <div
-        className={cn(
-          "z-40 border-b bg-background/95 backdrop-blur transition-all duration-300",
-          immersiveMode
-            ? controlsVisible
-              ? "sticky top-0 translate-y-0 opacity-100"
-              : "sticky top-0 -translate-y-full opacity-0 pointer-events-none"
-            : "sticky top-14"
-        )}
-      >
-        <div className="mx-auto flex h-12 max-w-3xl items-center justify-between px-4">
-          <div className="flex items-center gap-2 min-w-0">
-            <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
-              <Link href={`/novel/${novelSlug}`}>
-                <List className="h-4 w-4" />
-              </Link>
-            </Button>
-            <span className="truncate text-xs text-muted-foreground">
-              {novelTitle}
-            </span>
-          </div>
-          <div className="flex items-center gap-1">
-            {/* Immersive mode toggle */}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={toggleImmersiveMode}
-              title={immersiveMode ? "ออกจากโหมดอ่าน" : "โหมดอ่านเต็มจอ"}
-            >
-              {immersiveMode ? (
-                <Minimize2 className="h-4 w-4" />
-              ) : (
+      {/* Reading Progress Bar */}
+      <ProgressBar />
+
+      {/* Immersive: minimal top bar */}
+      {immersiveMode && (
+        <ReaderTopBar
+          novelTitle={novelTitle}
+          chapterNumber={chapter.chapterNumber}
+          visible={controlsVisible && !overlayVisible}
+        />
+      )}
+
+      {/* Normal mode: standard top nav */}
+      {!immersiveMode && (
+        <div className="z-40 sticky top-14 border-b bg-background/95 backdrop-blur transition-all duration-300">
+          <div className="mx-auto flex h-12 max-w-3xl items-center justify-between px-4">
+            <div className="flex items-center gap-2 min-w-0">
+              <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
+                <Link href={`/novel/${novelSlug}`}>
+                  <List className="h-4 w-4" />
+                </Link>
+              </Button>
+              <span className="truncate text-xs text-muted-foreground">
+                {novelTitle}
+              </span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={toggleImmersiveMode}
+                title="โหมดอ่านเต็มจอ"
+              >
                 <Maximize2 className="h-4 w-4" />
-              )}
-            </Button>
-            <ReaderSettings />
+              </Button>
+              <ReaderSettings ref={settingsRef} />
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Reading Area */}
       <div
@@ -229,49 +315,76 @@ export function ChapterReader({
       {/* Reading Progress Tracker */}
       <ReadingProgress chapterId={chapter.id} />
 
-      {/* Comments — hidden in immersive mode */}
-      {!immersiveMode && (
-        <div className="mx-auto max-w-3xl px-4 pb-8">
-          <Separator className="mb-8" />
-          <CommentSection chapterId={chapter.id} />
-        </div>
+      {/* Immersive overlay (tap to show) */}
+      {immersiveMode && (
+        <ReaderOverlay
+          visible={overlayVisible}
+          onDismiss={dismissOverlay}
+          onOpenSettings={openSettings}
+          onOpenChapterList={() => setChapterListOpen(true)}
+          onScrollToComments={scrollToComments}
+          onCycleTheme={cycleTheme}
+          currentTheme={readingTheme}
+          chapterNumber={chapter.chapterNumber}
+          novelSlug={novelSlug}
+          prevChapter={prevChapter}
+          nextChapter={nextChapter}
+        />
       )}
 
-      {/* Bottom Navigation */}
-      <div
-        className={cn(
-          "border-t bg-muted/30 transition-all duration-300",
-          immersiveMode && !controlsVisible && "translate-y-full opacity-0 pointer-events-none"
+      {/* Chapter list sheet (for overlay) */}
+      {allChapters && allChapters.length > 0 && (
+        <ChapterListSheet
+          chapters={allChapters}
+          currentChapterId={chapter.id}
+          novelSlug={novelSlug}
+          open={chapterListOpen}
+          onOpenChange={setChapterListOpen}
+        />
+      )}
+
+      {/* Comments */}
+      <div ref={commentsRef}>
+        {!immersiveMode && (
+          <div className="mx-auto max-w-3xl px-4 pb-8">
+            <Separator className="mb-8" />
+            <CommentSection chapterId={chapter.id} />
+          </div>
         )}
-      >
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-4">
-          {prevChapter ? (
-            <Button variant="outline" asChild>
-              <Link href={`/novel/${novelSlug}/${prevChapter.id}`}>
-                <ChevronLeft className="mr-1 h-4 w-4" />
-                ตอนที่ {prevChapter.chapterNumber}
-              </Link>
-            </Button>
-          ) : (
-            <div />
-          )}
-
-          <Button variant="ghost" size="sm" asChild>
-            <Link href={`/novel/${novelSlug}`}>สารบัญ</Link>
-          </Button>
-
-          {nextChapter ? (
-            <Button variant="outline" asChild>
-              <Link href={`/novel/${novelSlug}/${nextChapter.id}`}>
-                ตอนที่ {nextChapter.chapterNumber}
-                <ChevronRight className="ml-1 h-4 w-4" />
-              </Link>
-            </Button>
-          ) : (
-            <div />
-          )}
-        </div>
       </div>
+
+      {/* Bottom Navigation — normal mode only */}
+      {!immersiveMode && (
+        <div className="border-t bg-muted/30">
+          <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-4">
+            {prevChapter ? (
+              <Button variant="outline" asChild>
+                <Link href={`/novel/${novelSlug}/${prevChapter.id}`}>
+                  <ChevronLeft className="mr-1 h-4 w-4" />
+                  ตอนที่ {prevChapter.chapterNumber}
+                </Link>
+              </Button>
+            ) : (
+              <div />
+            )}
+
+            <Button variant="ghost" size="sm" asChild>
+              <Link href={`/novel/${novelSlug}`}>สารบัญ</Link>
+            </Button>
+
+            {nextChapter ? (
+              <Button variant="outline" asChild>
+                <Link href={`/novel/${novelSlug}/${nextChapter.id}`}>
+                  ตอนที่ {nextChapter.chapterNumber}
+                  <ChevronRight className="ml-1 h-4 w-4" />
+                </Link>
+              </Button>
+            ) : (
+              <div />
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

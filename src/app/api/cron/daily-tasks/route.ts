@@ -1,11 +1,12 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { checkWriterBadges } from "@/lib/badges";
+import { verifyCronAuth } from "@/lib/cron-auth";
 
 // GET — Consolidated daily cron: inactive writer, streak reset, badge checks
-// Secured by CRON_SECRET
+// Secured by CRON_SECRET with timing-safe comparison
 export async function GET(request: Request) {
-  if (request.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!verifyCronAuth(request)) {
     return new Response("Unauthorized", { status: 401 });
   }
 

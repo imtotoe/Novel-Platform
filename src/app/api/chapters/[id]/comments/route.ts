@@ -67,7 +67,15 @@ export async function POST(
     );
   }
 
-  const { content, parentId } = validated.data;
+  const { content: rawContent, parentId } = validated.data;
+
+  // Sanitize HTML entities to prevent XSS
+  const content = rawContent
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 
   if (parentId) {
     const parent = await prisma.comment.findUnique({ where: { id: parentId } });

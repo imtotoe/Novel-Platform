@@ -4,6 +4,7 @@ import { Sarabun } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { SessionProvider } from "@/components/providers/SessionProvider";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
+import { CookieConsent } from "@/components/layout/CookieConsent";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -47,6 +48,7 @@ export default function RootLayout({
           </SessionProvider>
         </ThemeProvider>
         <Toaster />
+        <CookieConsent />
       </body>
     </html>
   );

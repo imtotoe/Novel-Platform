@@ -8,13 +8,19 @@ export async function POST(request: Request) {
   const rawBody = await request.text();
   const signature = request.headers.get("omise-signature") || "";
 
-  // Verify HMAC signature if secret is configured
+  // Verify HMAC signature (mandatory)
   const webhookSecret = process.env.OMISE_WEBHOOK_SIGNING_SECRET;
-  if (webhookSecret && signature) {
-    if (!verifyOmiseSignature(rawBody, signature, webhookSecret)) {
-      console.error("Omise webhook: invalid signature");
-      return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
-    }
+  if (!webhookSecret) {
+    console.error("Omise webhook: OMISE_WEBHOOK_SIGNING_SECRET not configured");
+    return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
+  }
+  if (!signature) {
+    console.error("Omise webhook: missing signature header");
+    return NextResponse.json({ error: "Missing signature" }, { status: 401 });
+  }
+  if (!verifyOmiseSignature(rawBody, signature, webhookSecret)) {
+    console.error("Omise webhook: invalid signature");
+    return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }
 
   let event: Record<string, unknown>;

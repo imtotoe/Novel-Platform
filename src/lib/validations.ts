@@ -10,6 +10,9 @@ export const registerSchema = z.object({
   password: z.string().min(8, "ต้องมีอย่างน้อย 8 ตัวอักษร"),
   role: z.enum(["READER", "WRITER"]),
   displayName: z.string().max(50).optional(),
+  acceptTerms: z.literal(true, {
+    error: "กรุณายอมรับเงื่อนไขการใช้งาน",
+  }),
 });
 
 export const loginSchema = z.object({
