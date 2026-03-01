@@ -13,7 +13,7 @@ interface ReaderTopBarProps {
   novelTitle: string;
   chapterNumber: number;
   visible: boolean;
-  settingsRef?: React.RefObject<ReaderSettingsHandle>;
+  settingsRef?: React.RefObject<ReaderSettingsHandle | null>;
   onExitImmersive?: () => void;
 }
 
