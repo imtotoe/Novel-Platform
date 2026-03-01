@@ -350,7 +350,7 @@ export function ChapterReader({
         />
       )}
 
-      {/* Comments */}
+      {/* Comments — normal mode only */}
       <div ref={commentsRef}>
         {!immersiveMode && (
           <div className="mx-auto max-w-3xl px-4 pb-8">
@@ -360,38 +360,76 @@ export function ChapterReader({
         )}
       </div>
 
-      {/* Bottom Navigation — normal mode only */}
-      {!immersiveMode && (
-        <div className="border-t bg-muted/30">
-          <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-4">
-            {prevChapter ? (
-              <Button variant="outline" asChild>
-                <Link href={`/novel/${novelSlug}/${prevChapter.id}`}>
-                  <ChevronLeft className="mr-1 h-4 w-4" />
-                  ตอนที่ {prevChapter.chapterNumber}
-                </Link>
-              </Button>
-            ) : (
-              <div />
-            )}
-
-            <Button variant="ghost" size="sm" asChild>
-              <Link href={`/novel/${novelSlug}`}>สารบัญ</Link>
-            </Button>
-
-            {nextChapter ? (
-              <Button variant="outline" asChild>
-                <Link href={`/novel/${novelSlug}/${nextChapter.id}`}>
-                  ตอนที่ {nextChapter.chapterNumber}
-                  <ChevronRight className="ml-1 h-4 w-4" />
-                </Link>
-              </Button>
-            ) : (
-              <div />
-            )}
-          </div>
+      {/* ─── End-of-Chapter Navigation ─── */}
+      <div className="mx-auto max-w-3xl px-4 pb-16 pt-8">
+        {/* Chapter end label */}
+        <div className="flex items-center gap-3 mb-8">
+          <div className="flex-1 border-t border-dashed" />
+          <span className="text-xs text-muted-foreground shrink-0">จบตอนที่ {chapter.chapterNumber}</span>
+          <div className="flex-1 border-t border-dashed" />
         </div>
-      )}
+
+        {/* Prev / Next cards */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {prevChapter ? (
+            <Link
+              href={`/novel/${novelSlug}/${prevChapter.id}`}
+              className="group flex items-center gap-4 rounded-xl border bg-card px-5 py-4 transition-colors hover:bg-accent hover:border-primary/30"
+            >
+              <ChevronLeft className="h-5 w-5 shrink-0 text-muted-foreground group-hover:text-primary transition-colors" />
+              <div className="min-w-0">
+                <p className="text-[11px] text-muted-foreground mb-0.5">ตอนก่อนหน้า</p>
+                <p className="text-sm font-medium truncate">
+                  ตอนที่ {prevChapter.chapterNumber} · {prevChapter.title}
+                </p>
+              </div>
+            </Link>
+          ) : (
+            <div className="flex items-center gap-4 rounded-xl border border-dashed px-5 py-4 text-sm text-muted-foreground">
+              <ChevronLeft className="h-5 w-5 shrink-0 opacity-30" />
+              <span>นี่คือตอนแรก</span>
+            </div>
+          )}
+
+          {nextChapter ? (
+            <Link
+              href={`/novel/${novelSlug}/${nextChapter.id}`}
+              className="group flex items-center gap-4 rounded-xl border bg-primary/5 border-primary/20 px-5 py-4 transition-colors hover:bg-primary/10 hover:border-primary/50"
+            >
+              <div className="min-w-0 flex-1 text-right">
+                <p className="text-[11px] text-muted-foreground mb-0.5">ตอนถัดไป</p>
+                <p className="text-sm font-medium truncate text-primary">
+                  ตอนที่ {nextChapter.chapterNumber} · {nextChapter.title}
+                </p>
+              </div>
+              <ChevronRight className="h-5 w-5 shrink-0 text-primary transition-colors" />
+            </Link>
+          ) : (
+            <Link
+              href={`/novel/${novelSlug}`}
+              className="group flex items-center justify-end gap-4 rounded-xl border border-dashed px-5 py-4 text-sm text-muted-foreground hover:bg-accent transition-colors"
+            >
+              <div className="text-right min-w-0">
+                <p className="text-[11px] mb-0.5">ติดตามนิยาย</p>
+                <p className="font-medium">กลับหน้านิยาย →</p>
+              </div>
+            </Link>
+          )}
+        </div>
+
+        {/* Chapter list link */}
+        {allChapters && allChapters.length > 0 && (
+          <div className="mt-4 text-center">
+            <button
+              onClick={() => setChapterListOpen(true)}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors underline-offset-2 hover:underline"
+            >
+              ☰ ดูสารบัญทั้งหมด ({allChapters.length} ตอน)
+            </button>
+          </div>
+        )}
+      </div>
     </div>
+
   );
 }
