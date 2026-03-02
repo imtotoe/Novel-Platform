@@ -142,7 +142,7 @@ export default async function HomePage() {
           {/* Eyebrow tag */}
           <div className="mb-5 inline-flex items-center gap-2 self-start rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-xs font-semibold text-white/80 backdrop-blur-sm">
             <Flame className="h-3 w-3 text-amber-400" />
-            แพลตฟอร์มนิยายออนไลน์ที่คุณรอคอย · v2
+            แพลตฟอร์มนิยายออนไลน์ที่คุณรอคอย
           </div>
           {/* Headline */}
           <h1
