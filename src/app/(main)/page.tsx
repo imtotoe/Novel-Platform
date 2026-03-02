@@ -1,11 +1,12 @@
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { NovelCard } from "@/components/novel/NovelCard";
-import { ArrowRight, BookOpen, PenTool, TrendingUp, Sparkles, Clock } from "lucide-react";
+import { ArrowRight, BookOpen, PenTool, TrendingUp, Sparkles, Clock, Flame } from "lucide-react";
 import { ReadingResumeBanner } from "@/components/reader/ReadingResumeBanner";
 
 async function getFeaturedNovels() {
@@ -88,7 +89,8 @@ function mapNovel(n: Awaited<ReturnType<typeof getPopularNovels>>[number]) {
 }
 
 export default async function HomePage() {
-  const [featured, popular, latest, recentUpdates, genres] = await Promise.all([
+  const [session, featured, popular, latest, recentUpdates, genres] = await Promise.all([
+    auth(),
     getFeaturedNovels(),
     getPopularNovels(),
     getLatestNovels(),
@@ -96,49 +98,126 @@ export default async function HomePage() {
     getGenres(),
   ]);
 
+  const user = session?.user;
+  const isWriter = user?.role === "WRITER" || user?.role === "ADMIN";
   const hasContent = popular.length > 0 || latest.length > 0;
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 space-y-10">
-      {/* Hero */}
-      <section className="relative overflow-hidden rounded-2xl px-6 py-12 md:px-12 md:py-16" style={{ background: "radial-gradient(ellipse at 0% 100%, hsl(35,80%,55%,0.18) 0%, transparent 60%), radial-gradient(ellipse at 100% 0%, hsl(220,70%,60%,0.12) 0%, transparent 60%), hsl(var(--muted))" }}>
-        {/* Decorative book emoji */}
-        <div className="pointer-events-none absolute right-6 top-1/2 -translate-y-1/2 select-none text-[120px] opacity-10 md:right-12 md:text-[180px]" aria-hidden="true">
-          📖
+      {/* ─── Hero ─── */}
+      <section className="relative overflow-hidden rounded-3xl" style={{ minHeight: "380px" }}>
+        {/* Rich layered background */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(ellipse 120% 80% at 10% 110%, hsl(28,90%,52%) 0%, transparent 55%), " +
+              "radial-gradient(ellipse 80% 60% at 90% -10%, hsl(220,60%,42%) 0%, transparent 50%), " +
+              "radial-gradient(ellipse 60% 50% at 55% 50%, hsl(340,50%,30%) 0%, transparent 60%), " +
+              "hsl(225,30%,12%)",
+          }}
+        />
+        {/* Subtle noise vignette */}
+        <div
+          className="absolute inset-0 opacity-[0.04]"
+          style={{ backgroundImage: "url('data:image/svg+xml,%3Csvg viewBox=\"0 0 256 256\" xmlns=\"http://www.w3.org/2000/svg\"%3E%3Cfilter id=\"noise\"%3E%3CfeTurbulence type=\"fractalNoise\" baseFrequency=\"0.9\" numOctaves=\"4\" stitchTiles=\"stitch\"/%3E%3C/filter%3E%3Crect width=\"100%25\" height=\"100%25\" filter=\"url(%23noise)\"/%3E%3C/svg%3E')" }}
+        />
+        {/* Decorative glowing orb */}
+        <div
+          className="pointer-events-none absolute -right-16 -top-16 h-72 w-72 rounded-full opacity-20 blur-3xl"
+          style={{ background: "radial-gradient(circle, hsl(35,95%,65%) 0%, transparent 70%)" }}
+          aria-hidden="true"
+        />
+        {/* Large decorative character */}
+        <div
+          className="pointer-events-none absolute bottom-0 right-0 select-none opacity-[0.07] text-[220px] leading-none md:text-[320px]"
+          aria-hidden="true"
+          style={{ fontFamily: "serif", lineHeight: 1 }}
+        >
+          書
         </div>
-        <div className="relative max-w-2xl">
-          <h1 className="text-3xl font-bold tracking-tight md:text-4xl lg:text-5xl">
-            ค้นพบโลกแห่งนิยาย
+
+        {/* Content */}
+        <div className="relative z-10 flex flex-col justify-center px-8 py-14 md:px-16 md:py-20" style={{ minHeight: "380px" }}>
+          {/* Eyebrow tag */}
+          <div className="mb-5 inline-flex items-center gap-2 self-start rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-xs font-semibold text-white/80 backdrop-blur-sm">
+            <Flame className="h-3 w-3 text-amber-400" />
+            แพลตฟอร์มนิยายออนไลน์ที่คุณรอคอย
+          </div>
+          {/* Headline */}
+          <h1
+            className="max-w-xl text-4xl font-black leading-tight tracking-tight text-white md:text-5xl lg:text-6xl"
+            style={{ fontFamily: "'Georgia', 'Noto Serif Thai', serif", textShadow: "0 2px 40px rgba(0,0,0,0.4)" }}
+          >
+            ค้นพบโลก
+            <br />
+            <span style={{ color: "hsl(35,95%,70%)" }}>แห่งนิยาย</span>
           </h1>
-          <p className="mt-3 text-lg text-muted-foreground">
-            อ่านและเขียนนิยายออนไลน์ หลากหลายแนว จากนักเขียนทั่วประเทศ
+          <p className="mt-4 max-w-md text-base text-white/70 md:text-lg">
+            อ่านและเขียนนิยายออนไลน์ หลากหลายแนว จากนักเขียนทั่วประเทศ ฟรี ไม่มีค่าใช้จ่าย
           </p>
-          <div className="mt-6 flex flex-wrap gap-3">
-            <Button size="lg" asChild>
+          {/* CTAs */}
+          <div className="mt-8 flex flex-wrap gap-3">
+            <Button
+              size="lg"
+              asChild
+              className="rounded-xl bg-amber-500 text-black font-bold hover:bg-amber-400 shadow-lg shadow-amber-500/30 transition-all hover:scale-105"
+            >
               <Link href="/explore">
                 <BookOpen className="mr-2 h-4 w-4" />
                 เริ่มอ่านเลย
               </Link>
             </Button>
-            <Button size="lg" variant="outline" asChild>
-              <Link href="/register">
-                <PenTool className="mr-2 h-4 w-4" />
-                เริ่มเขียน
-              </Link>
-            </Button>
+            {isWriter ? (
+              <Button
+                size="lg"
+                variant="outline"
+                asChild
+                className="rounded-xl border-white/30 bg-white/10 text-white backdrop-blur-sm hover:bg-white/20 transition-all hover:scale-105"
+              >
+                <Link href="/writer/novel/new">
+                  <PenTool className="mr-2 h-4 w-4" />
+                  สร้างนิยายใหม่
+                </Link>
+              </Button>
+            ) : user ? (
+              <Button
+                size="lg"
+                variant="outline"
+                asChild
+                className="rounded-xl border-white/30 bg-white/10 text-white backdrop-blur-sm hover:bg-white/20 transition-all hover:scale-105"
+              >
+                <Link href="/settings">
+                  <PenTool className="mr-2 h-4 w-4" />
+                  อัพเกรดเป็นนักเขียน
+                </Link>
+              </Button>
+            ) : (
+              <Button
+                size="lg"
+                variant="outline"
+                asChild
+                className="rounded-xl border-white/30 bg-white/10 text-white backdrop-blur-sm hover:bg-white/20 transition-all hover:scale-105"
+              >
+                <Link href="/register">
+                  <PenTool className="mr-2 h-4 w-4" />
+                  เริ่มเขียนฟรี
+                </Link>
+              </Button>
+            )}
           </div>
-          {/* Social proof stats */}
-          <div className="mt-6 flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+          {/* Stats strip */}
+          <div className="mt-8 flex flex-wrap items-center gap-6 text-xs text-white/50">
             <span className="flex items-center gap-1.5">
-              <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-500" />
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400" />
               นิยายหลากหลายแนว
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="inline-block h-1.5 w-1.5 rounded-full bg-blue-500" />
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-sky-400" />
               อัพเดตทุกวัน
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-500" />
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-400" />
               ฟรีเข้าอ่านได้เลย
             </span>
           </div>
